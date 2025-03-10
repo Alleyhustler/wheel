@@ -461,13 +461,15 @@
     <footer>
         &copy; 2025 SOL Spinner | All rights reserved
     </footer>
-    
+
+    <!-- Include Solana Web3.js -->
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
     <script>
         // Configuration
         const CONFIG = {
-            burnAddress: "59ZLDPBge9MUSLKAYVHMnqxPL5dwob5dQfULWskmErG1",
-            vaultAddress: "59ZLDPBge9MUSLKAYVHMnqxPL5dwob5dQfULWskmErG1", // Change this to your actual vault address
-            spinCost: 0.005,
+            burnAddress: "59ZLDPBge9MUSLKAYVHMnqxPL5dwob5dQfULWskmErG1", // Replace with your burn address
+            vaultAddress: "59ZLDPBge9MUSLKAYVHMnqxPL5dwob5dQfULWskmErG1", // Replace with your vault address
+            spinCost: 0.005, // Cost per spin in SOL
             outcomes: [
                 { type: "burn", chance: 25, color: "var(--primary)", degrees: [0, 90] },
                 { type: "vault", chance: 25, color: "#4CAF50", degrees: [90, 180] },
@@ -477,7 +479,7 @@
                 { type: "reset", chance: 5, color: "var(--error)", degrees: [342, 360] }
             ]
         };
-        
+
         // State
         let gameStats = {
             totalSpins: 0,
@@ -485,120 +487,146 @@
             vaultBalance: 0,
             resets: 0
         };
-        
+
         let walletConnected = false;
         let isSpinning = false;
-        
+        let publicKey = null; // User's wallet address
+        let connection = null; // Solana connection
+
         // DOM Elements
         const wheelEl = document.getElementById('wheel');
         const connectWalletBtn = document.getElementById('connect-wallet');
         const spinBtn = document.getElementById('spin-btn');
         const resultEl = document.getElementById('result');
-        
+
         // Stats Elements
         const totalSpinsEl = document.getElementById('total-spins');
         const burnedSolEl = document.getElementById('burned-sol');
         const vaultBalanceEl = document.getElementById('vault-balance');
         const resetsEl = document.getElementById('resets');
-        
-        // Connect wallet
+
+        // Initialize Solana connection
+        function initSolana() {
+            if (window.solana && window.solana.isPhantom) {
+                connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('mainnet-beta'), 'confirmed');
+            } else {
+                alert('Phantom Wallet not detected. Please install Phantom Wallet.');
+            }
+        }
+
+        // Connect Phantom Wallet
         connectWalletBtn.addEventListener('click', async () => {
-            // Simulate wallet connection (in a real app, you'd use something like Phantom wallet)
-            setTimeout(() => {
-                walletConnected = true;
-                connectWalletBtn.textContent = 'Wallet Connected';
-                spinBtn.disabled = false;
-            }, 1000);
+            if (window.solana && window.solana.isPhantom) {
+                try {
+                    const resp = await window.solana.connect();
+                    publicKey = resp.publicKey.toString();
+                    walletConnected = true;
+                    connectWalletBtn.textContent = `Connected: ${publicKey.slice(0, 6)}...`;
+                    spinBtn.disabled = false;
+                } catch (err) {
+                    console.error('Failed to connect wallet:', err);
+                }
+            } else {
+                alert('Phantom Wallet not detected. Please install Phantom Wallet.');
+            }
         });
-        
+
         // Spin wheel
         spinBtn.addEventListener('click', async () => {
             if (!walletConnected || isSpinning) return;
-            
+
             isSpinning = true;
             spinBtn.disabled = true;
-            
+
             // Hide previous result
             resultEl.classList.remove('visible');
             resultEl.className = 'result';
-            
-            // Random outcome based on weighted chances
-            const outcome = getRandomOutcome();
-            
-            // Get random degree within the outcome's range
-            const minDeg = outcome.degrees[0];
-            const maxDeg = outcome.degrees[1];
-            const randomDegInRange = minDeg + Math.random() * (maxDeg - minDeg);
-            
-            // Calculate rotation (adding 5 full rotations plus the random position)
-            const rotation = 1800 + randomDegInRange;
-            
-            // Animate wheel
-            wheelEl.style.transform = `rotate(${rotation}deg)`;
-            
-            // Wait for animation to finish
-            setTimeout(() => {
+
+            // Deduct spin cost from user's wallet
+            try {
+                const transaction = new solanaWeb3.Transaction().add(
+                    solanaWeb3.SystemProgram.transfer({
+                        fromPubkey: publicKey,
+                        toPubkey: new solanaWeb3.PublicKey(CONFIG.vaultAddress),
+                        lamports: solanaWeb3.LAMPORTS_PER_SOL * CONFIG.spinCost
+                    })
+                );
+
+                const { blockhash } = await connection.getRecentBlockhash();
+                transaction.recentBlockhash = blockhash;
+                transaction.feePayer = publicKey;
+
+                const signed = await window.solana.signAndSendTransaction(transaction);
+                await connection.confirmTransaction(signed.signature);
+
+                // Random outcome based on weighted chances
+                const outcome = getRandomOutcome();
+
                 // Process outcome
                 processOutcome(outcome.type);
-                
+
                 // Enable spin button
                 isSpinning = false;
                 spinBtn.disabled = false;
-            }, 4000);
+            } catch (err) {
+                console.error('Transaction failed:', err);
+                isSpinning = false;
+                spinBtn.disabled = false;
+            }
         });
-        
+
         // Get random outcome based on weighted chances
         function getRandomOutcome() {
             const random = Math.random() * 100;
             let cumulativeChance = 0;
-            
+
             for (const outcome of CONFIG.outcomes) {
                 cumulativeChance += outcome.chance;
                 if (random <= cumulativeChance) {
                     return outcome;
                 }
             }
-            
+
             return CONFIG.outcomes[0]; // Fallback
         }
-        
+
         // Process outcome
         function processOutcome(type) {
             gameStats.totalSpins++;
-            
+
             let resultText = '';
             let resultClass = '';
-            
+
             switch (type) {
                 case 'burn':
                     gameStats.burnedSol += CONFIG.spinCost;
                     resultText = `🔥 Burned ${CONFIG.spinCost} SOL! 🔥`;
                     resultClass = 'burn';
                     break;
-                    
+
                 case 'vault':
                     gameStats.vaultBalance += CONFIG.spinCost;
                     resultText = `💰 ${CONFIG.spinCost} SOL sent to vault! 💰`;
                     resultClass = 'buy';
                     break;
-                    
+
                 case 'win2x':
                     const win2x = CONFIG.spinCost * 2;
                     resultText = `🎉 You won ${win2x.toFixed(3)} SOL (2x)! 🎉`;
                     resultClass = 'win2x';
                     break;
-                    
+
                 case 'win5x':
                     const win5x = CONFIG.spinCost * 5;
                     resultText = `🚀 You won ${win5x.toFixed(3)} SOL (5x)! 🚀`;
                     resultClass = 'win5x';
                     break;
-                    
+
                 case 'loss':
                     resultText = `😢 You lost ${CONFIG.spinCost} SOL! 😢`;
                     resultClass = 'loss';
                     break;
-                    
+
                 case 'reset':
                     gameStats.burnedSol += gameStats.vaultBalance;
                     gameStats.resets++;
@@ -607,16 +635,16 @@
                     resultClass = 'reset';
                     break;
             }
-            
+
             // Update stats display
             updateStats();
-            
+
             // Show result
             resultEl.textContent = resultText;
             resultEl.classList.add(resultClass);
             resultEl.classList.add('visible');
         }
-        
+
         // Update stats display
         function updateStats() {
             totalSpinsEl.textContent = gameStats.totalSpins;
@@ -624,8 +652,9 @@
             vaultBalanceEl.textContent = gameStats.vaultBalance.toFixed(3);
             resetsEl.textContent = gameStats.resets;
         }
-        
+
         // Initialize
+        initSolana();
         updateStats();
     </script>
 </head>
