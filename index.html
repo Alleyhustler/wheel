@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SOL Spinner</title>
+    <title>Wheel Scheme</title>
     <style>
    :root {
             --primary: #9945FF;
@@ -203,12 +203,12 @@
         }
         
         .wallet-btn,
-        .spin-btn {
+        .spin-btn,
+        .claim-btn {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
-            background: var(--primary);
             color: white;
             border: none;
             border-radius: 8px;
@@ -225,14 +225,32 @@
             border: 1px solid var(--primary);
         }
         
+        .spin-btn {
+            background: var(--primary);
+        }
+        
+        .claim-btn {
+            background: var(--accent);
+            color: var(--background);
+        }
+        
+        .reward-info {
+            font-size: 0.85rem;
+            text-align: center;
+            opacity: 0.8;
+            margin-top: 0.25rem;
+        }
+        
         .wallet-btn:hover,
-        .spin-btn:hover {
+        .spin-btn:hover,
+        .claim-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(153, 69, 255, 0.3);
         }
         
         .wallet-btn:active,
-        .spin-btn:active {
+        .spin-btn:active,
+        .claim-btn:active {
             transform: translateY(0);
         }
         
@@ -378,18 +396,57 @@
             border-radius: 4px;
             margin-top: 1rem;
         }
+
+        .timer-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 0.5rem;
+            gap: 0.5rem;
+        }
+
+        .timer {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .timer-label {
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+        .logo-circle {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            overflow: hidden; /* Ensure the image stays within the circle */
+        }
+
+        .logo-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Ensure the image fits nicely */
+        }
     </style>
 </head>
 <body>
     <header>
         <div class="logo">
-            <div class="logo-circle">S</div>
-            <div class="title">SOL Spinner</div>
+            <div class="logo-circle">
+                <!-- Replace 'logo.png' with the path to your image -->
+                <img src="0d15ef5003fea577943d3a52eb1cac48-removebg-preview (1).png" alt="SOL Spinner Logo">
+            </div>
+            <div class="title">Wheel Scheme</div>
         </div>
         <div class="social-links">
-            <a href="#">🐦</a>
-            <a href="#">🌐</a>
-            <a href="#">📱</a>
+            <a href="https://x.com/Wheelscheme">twitter</a>
+            <a href="https://t.me/wheelscheme">telegram</a>
+            <a href="https://pump.fun/profile/2tvirhMJpcRmZ7LNbQ6BDd97nzLUsdQtnHAE3m4nKoLa">buy $SCHEME</a>
         </div>
     </header>
     
@@ -484,6 +541,16 @@
                     <button class="spin-btn" id="spin-btn" disabled>
                         Spin for 0.005 SOL
                     </button>
+                    <button class="claim-btn" id="claim-reward-btn" disabled>
+                        Claim Reward
+                    </button>
+                    <div class="reward-info">
+                        (every 15 minutes/mcap)
+                    </div>
+                    <div class="timer-container" id="timer-container" style="display: none;">
+                        <span class="timer-label">Next claim in:</span>
+                        <span class="timer" id="claim-timer">15:00</span>
+                    </div>
                 </div>
                 
                 <div class="result-container">
@@ -491,7 +558,7 @@
                 </div>
                 
                 <div class="simulation-notice">
-                    Simulation Mode: No real SOL is being used
+                    Reward only coming once on DEX
                 </div>
             </div>
         </div>
@@ -501,10 +568,13 @@
         &copy; 2025 SOL Spinner | All rights reserved
     </footer>
 
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
     <script>
         // Configuration
         const CONFIG = {
             spinCost: 0.005, // Cost per spin in SOL
+            rewardAmount: 0.001, // Reward amount in SOL
+            rewardInterval: 15 * 60 * 1000, // 15 minutes in milliseconds
             outcomes: [
                 { type: "burn", chance: 25, color: "var(--primary)", degrees: [0, 90] },
                 { type: "vault", chance: 25, color: "#4CAF50", degrees: [90, 180] },
@@ -526,7 +596,9 @@
         let userWallet = {
             connected: false,
             address: "",
-            balance: 5.000 // Starting with 5 SOL for simulation
+            balance: 0,
+            lastClaim: null,
+            nextClaimTime: null
         };
 
         let isSpinning = false;
@@ -535,10 +607,13 @@
         const wheelEl = document.getElementById('wheel');
         const connectWalletBtn = document.getElementById('connect-wallet');
         const spinBtn = document.getElementById('spin-btn');
+        const claimRewardBtn = document.getElementById('claim-reward-btn');
         const resultEl = document.getElementById('result');
         const walletInfoEl = document.getElementById('wallet-info');
         const walletAddressEl = document.getElementById('wallet-address');
         const walletBalanceEl = document.getElementById('wallet-balance');
+        const timerContainerEl = document.getElementById('timer-container');
+        const timerEl = document.getElementById('claim-timer');
 
         // Stats Elements
         const totalSpinsEl = document.getElementById('total-spins');
@@ -546,25 +621,45 @@
         const vaultBalanceEl = document.getElementById('vault-balance');
         const resetsEl = document.getElementById('resets');
 
-        // Connect Phantom Wallet (simulated)
-        connectWalletBtn.addEventListener('click', () => {
-            if (!userWallet.connected) {
-                // Generate random wallet address
-                const randomAddress = 'Sol' + Math.random().toString(36).substring(2, 10) + '...';
-                
-                userWallet.connected = true;
-                userWallet.address = randomAddress;
-                
-                // Update UI
-                connectWalletBtn.textContent = `Connected: ${randomAddress}`;
-                spinBtn.disabled = false;
-                walletInfoEl.style.display = 'flex';
-                walletAddressEl.textContent = randomAddress;
-                walletBalanceEl.textContent = `${userWallet.balance.toFixed(3)} SOL`;
-                
-                console.log('Wallet connected (simulation)');
+        // Connect Phantom Wallet
+        connectWalletBtn.addEventListener('click', async () => {
+            if (!window.solana || !window.solana.isPhantom) {
+                alert('Phantom wallet not found! Please install Phantom wallet.');
+                return;
+            }
+
+            try {
+                const resp = await window.solana.connect();
+                if (resp.publicKey) {
+                    userWallet.connected = true;
+                    userWallet.address = resp.publicKey.toString();
+                    userWallet.balance = await getWalletBalance(resp.publicKey);
+
+                    // Update UI
+                    connectWalletBtn.textContent = `Connected: ${userWallet.address.slice(0, 4)}...${userWallet.address.slice(-4)}`;
+                    spinBtn.disabled = false;
+                    claimRewardBtn.disabled = false;
+                    walletInfoEl.style.display = 'flex';
+                    walletAddressEl.textContent = userWallet.address;
+                    walletBalanceEl.textContent = `${userWallet.balance.toFixed(3)} SOL`;
+                    timerContainerEl.style.display = 'flex';
+
+                    // Start the claim timer
+                    updateClaimTimer();
+
+                    console.log('Wallet connected:', userWallet.address);
+                }
+            } catch (err) {
+                console.error('Failed to connect wallet:', err);
             }
         });
+
+        // Get wallet balance
+        async function getWalletBalance(publicKey) {
+            const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('mainnet-beta'));
+            const balance = await connection.getBalance(publicKey);
+            return balance / solanaWeb3.LAMPORTS_PER_SOL;
+        }
 
         // Spin wheel
         spinBtn.addEventListener('click', () => {
@@ -608,6 +703,36 @@
                     spinBtn.disabled = false;
                 }, 500);
             }, 4000); // Match the CSS transition duration (4s)
+        });
+
+        // Claim reward button
+        claimRewardBtn.addEventListener('click', () => {
+            if (!userWallet.connected) return;
+            
+            const now = Date.now();
+            
+            // Check if enough time has passed since last claim
+            if (userWallet.nextClaimTime && now < userWallet.nextClaimTime) {
+                const timeLeft = formatTimeLeft(userWallet.nextClaimTime - now);
+                resultEl.textContent = `Please wait ${timeLeft} before claiming again!`;
+                resultEl.classList.add('visible');
+                resultEl.classList.add('loss');
+                return;
+            }
+            
+            // Add reward to user's balance
+            userWallet.balance += CONFIG.rewardAmount;
+            userWallet.lastClaim = now;
+            userWallet.nextClaimTime = now + CONFIG.rewardInterval;
+            
+            // Update UI
+            updateWalletInfo();
+            updateClaimTimer();
+            
+            // Show result
+            resultEl.textContent = `🎁 Claimed ${CONFIG.rewardAmount.toFixed(3)} SOL reward! 🎁`;
+            resultEl.classList.add('visible');
+            resultEl.classList.add('win2x');
         });
 
         // Determine outcome based on wheel position
@@ -697,6 +822,40 @@
             burnedSolEl.textContent = gameStats.burnedSol.toFixed(3);
             vaultBalanceEl.textContent = gameStats.vaultBalance.toFixed(3);
             resetsEl.textContent = gameStats.resets;
+        }
+
+        // Update claim timer
+        function updateClaimTimer() {
+            if (!userWallet.connected || !userWallet.nextClaimTime) return;
+            
+            const updateTimer = () => {
+                const now = Date.now();
+                const timeLeft = userWallet.nextClaimTime - now;
+                
+                if (timeLeft <= 0) {
+                    timerEl.textContent = "Ready!";
+                    timerEl.style.color = "#4CAF50";
+                    claimRewardBtn.disabled = false;
+                    return;
+                }
+                
+                timerEl.textContent = formatTimeLeft(timeLeft);
+                timerEl.style.color = "";
+                claimRewardBtn.disabled = true;
+                
+                // Continue updating the timer
+                setTimeout(updateTimer, 1000);
+            };
+            
+            updateTimer();
+        }
+
+        // Format time left in MM:SS format
+        function formatTimeLeft(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }
 
         // Initialize
