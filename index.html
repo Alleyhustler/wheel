@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wheel Jackpot </title>
     <link href="https://fonts.googleapis.com/css2?family=Langar&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
     <style>
    :root {
             --primary: #9945FF;
-            --background: #121212;
+            --background: #241919;
             --surface: #1E1E1E;
             --text: #F5F5F5;
             --accent: #03DAC6;
@@ -19,7 +20,7 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: "Langar", system-ui;
+            font-family: "Pixelify Sans", sans-serif;
         }
         
         body {
@@ -34,7 +35,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1.5rem;
+            padding: 0.8rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         
@@ -95,6 +96,21 @@
             .game-container {
                 flex-direction: row;
                 align-items: flex-start;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            
+            /* Adjust wheel to be positioned center-left */
+            .wheel-container {
+                flex: 0 1 40%; /* Adjust the flex basis to control the width */
+                margin-right: 2rem; /* Add some space between the wheel and game info */
+                order: 1; /* Ensure the wheel is first in the flex order */
+                margin-left: 2rem; /* Add left margin to push it slightly to the left */
+            }
+
+            .game-info {
+                flex: 0 1 55%; /* Adjust the flex basis for the game info */
+                order: 2; /* Ensure the game info is second in the flex order */
             }
         }
         
@@ -103,13 +119,14 @@
             width: 100%;
             max-width: 400px;
             aspect-ratio: 1;
+            margin: 0 auto; /* Center the wheel on smaller screens */
         }
 
         .wheel {
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            background: url('0d15ef5003fea577943d3a52eb1cac48-removebg-preview (1) (1).png') no-repeat center center;
+            background: url('image-removebg-preview (14).png') no-repeat center center;
             background-size: cover;
             transition: transform 4s cubic-bezier(0.17, 0.67, 0.83, 0.67);
             box-shadow: 0 0 30px rgba(153, 69, 255, 0.3);
@@ -135,10 +152,10 @@
             top: 0;
             left: 50%;
             transform: translateX(-50%);
-            width: 20px;
-            height: 40px;
+            width: 6px;
+            height: 45px;
             background: var(--error);
-            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            clip-path: rectangular(50% 0%, 0% 100%, 100% 100%);
             z-index: 5;
         }
         
@@ -151,7 +168,7 @@
         }
         
         .stats-container {
-            background: var(--surface);
+            background: #573737;
             border-radius: 8px;
             padding: 1.5rem;
             display: flex;
@@ -216,16 +233,16 @@
         }
         
         .wallet-btn {
-            background: var(--surface);
+            background: #573737;
             border: 1px solid var(--primary);
         }
         
         .spin-btn {
-            background: var(--primary);
+            background: var(--error);
         }
         
         .claim-btn {
-            background: var(--accent);
+            background: var(--primary);
             color: var(--background);
         }
         
@@ -294,7 +311,7 @@
         }
         
         .outcomes-container {
-            background: var(--surface);
+            background: #573737;
             border-radius: 8px;
             padding: 1.5rem;
         }
@@ -414,7 +431,7 @@
             width: 52px;
             height: 52px;
             border-radius: 50%;
-            background: var(--primary);
+            background: var(--error);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -434,14 +451,14 @@
         <div class="logo">
             <div class="logo-circle">
                 <!-- Replace 'logo.png' with the path to your image -->
-                <img src="0d15ef5003fea577943d3a52eb1cac48-removebg-preview (1).png" alt="SOL Spinner Logo">
+                <img src="image-removebg-preview (14).png" alt="SOL Spinner Logo">
             </div>
-            <div class="title">Wheel Jackpot</div>
+            <div class="title">Wheel Fortune</div>
         </div>
         <div class="social-links">
-            <a href="https://x.com/Wheel_Coin">twitter</a>
-            <a href="https://t.me/wheelpot">telegram</a>
-            <a href="https://pump.fun/profile/12po7DAgkYhFkuY367F13wsbwwRENxJLFQEhED8uV7oy">buy $JACKPOT</a>
+            <a href="https://x.com/WheelFortuneFun">Twitter</a>
+            <a href="https://t.me/wheelfortuneee">Telegram</a>
+            <a href="https://pump.fun/profile/CwVmBEUKcie3wYqgvwdDm7STKvRwYaxXvw1mwD6PyBVf">Buy $FORTUNE</a>
         </div>
     </header>
     
